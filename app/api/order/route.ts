@@ -3,7 +3,12 @@ import { z } from "zod";
 import { db } from "@/lib/db/index";
 import * as schema from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { parseVoiceTranscriptWithLLM, matchVoiceItemsAgainstCatalog } from "@/lib/parseOrder";
+import {
+  parseVoiceTranscriptWithLLM,
+  matchVoiceItemsAgainstCatalog,
+  computeItemLineTotal,
+  DEFAULT_GROCERY_CATALOG,
+} from "@/lib/parseOrder";
 import { calculateLineTotal, formatPaise } from "@/lib/money";
 
 const OrderRequestSchema = z.object({
@@ -68,16 +73,35 @@ export async function POST(req: NextRequest) {
       console.warn("DB lookup bypassed in /api/order, proceeding with semantic engine:", dbErr);
     }
 
+    if (!shopInfo) {
+      shopInfo = {
+        name: "Prasad Kirana & General Store",
+        slug: "prasad-kirana",
+        phone: "+91 98765 43210",
+        address: "Shop 14, Main Bazaar, Anand Nagar, Pune - 411038",
+      };
+    }
+
+    if (catalogWithAliases.length === 0) {
+      catalogWithAliases = DEFAULT_GROCERY_CATALOG;
+    }
+
     // 3. Correlate and Match Items against Catalog
     const matchedItems = matchVoiceItemsAgainstCatalog(voiceOrder.items, catalogWithAliases);
 
-    // Calculate totals
+    // Calculate totals with accurate proportional pack & weight calculations
     let totalPaise = 0;
     const finalItems = matchedItems.map(({ item, matchResult, correlationExplanation }) => {
       const selected = matchResult.selectedProduct;
       let lineTotalPaise = 0;
-      if (matchResult.status === "MATCHED" && selected) {
-        lineTotalPaise = calculateLineTotal(item.quantity || 1, selected.pricePaise);
+      let unitRatePaise = 0;
+      let rateDisplay = "—";
+
+      if (selected) {
+        const computed = computeItemLineTotal(item, selected as any);
+        lineTotalPaise = computed.lineTotalPaise;
+        unitRatePaise = computed.unitRatePaise;
+        rateDisplay = computed.rateDisplay;
         totalPaise += lineTotalPaise;
       }
 
@@ -99,6 +123,8 @@ export async function POST(req: NextRequest) {
               formattedPrice: formatPaise(selected.pricePaise),
             }
           : null,
+        unitRatePaise,
+        rateDisplay,
         lineTotalPaise,
         formattedLineTotal: lineTotalPaise > 0 ? formatPaise(lineTotalPaise) : "—",
         correlationExplanation,
@@ -155,6 +181,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       orderNumber,
+      customerName,
+      customerPhone,
+      deliveryAddress,
       transcript: text,
       detectedLanguage: voiceOrder.detected_language,
       deliveryTimeText: voiceOrder.delivery_time_text,
@@ -169,7 +198,14 @@ export async function POST(req: NextRequest) {
         explanation: f.correlationExplanation,
       })),
       shopkeeperReceipt: shopkeeperAck?.counterReceipt || null,
-      shop: shopInfo ? { name: shopInfo.name, slug: shopInfo.slug } : null,
+      shop: shopInfo
+        ? {
+            name: shopInfo.name,
+            slug: shopInfo.slug,
+            phone: shopInfo.phone,
+            address: shopInfo.address,
+          }
+        : null,
     });
   } catch (error: any) {
     return NextResponse.json(

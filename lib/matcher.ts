@@ -272,14 +272,26 @@ export function matchItemAgainstCatalog(
       );
     }
 
+    // Assign the top candidate as the primary default so the item is priced, while preserving candidates
+    const defaultProduct = closeCandidates[0].product;
+    const baseResult = flagSingleProduct(
+      defaultProduct,
+      requestedQty,
+      rawText,
+      requestedUnit,
+      candidates
+    );
+
     return {
+      ...baseResult,
       rawText,
       requestedQty,
       requestedUnit,
       isVague,
       status: "AMBIGUOUS",
+      selectedProduct: defaultProduct,
       candidates: closeCandidates,
-      reason: "Multiple products or pack sizes match your request.",
+      reason: `Multiple options match. Default selected: ${defaultProduct.name}. Alternatives: ${closeCandidates.slice(1).map((c) => c.product.name).join(", ")}.`,
     };
   }
 
@@ -292,6 +304,39 @@ export function matchItemAgainstCatalog(
   );
 }
 
+function convertRequestedQtyToProductUnit(
+  requestedQty: number | null,
+  requestedUnit: string | null,
+  productPackSize: string,
+  productUnit: string
+): number {
+  if (requestedQty === null || requestedQty <= 0) return 1;
+  const reqUnit = (requestedUnit || "").toLowerCase();
+  const prodUnit = (productUnit || "").toLowerCase();
+  const pack = (productPackSize || "").toLowerCase();
+
+  // If requested in grams and product is measured in kg (e.g. 500g of a 1kg pack)
+  if (reqUnit === "g" || reqUnit === "gram" || reqUnit === "grams" || reqUnit === "gm") {
+    if (prodUnit === "kg" || pack.includes("kg")) {
+      return requestedQty / 1000;
+    }
+  }
+
+  // If requested in ml and product is in litres
+  if (reqUnit === "ml") {
+    if (prodUnit === "l" || pack.includes("l") || pack.includes("litre")) {
+      return requestedQty / 1000;
+    }
+  }
+
+  // If requested in pcs and product pack is dozen
+  if ((reqUnit === "pcs" || reqUnit === "pc") && pack.includes("dozen")) {
+    return requestedQty / 12;
+  }
+
+  return requestedQty;
+}
+
 function flagSingleProduct(
   product: Product,
   requestedQty: number | null,
@@ -300,6 +345,12 @@ function flagSingleProduct(
   candidates: MatchCandidate[]
 ): MatchResult {
   const stock = parseFloat(product.stockQty);
+  const normalizedRequestedQty = convertRequestedQtyToProductUnit(
+    requestedQty,
+    requestedUnit,
+    product.packSize,
+    product.unit
+  );
   const qty = requestedQty ?? 1;
 
   if (stock <= 0) {
@@ -311,11 +362,11 @@ function flagSingleProduct(
       status: "OUT_OF_STOCK",
       selectedProduct: product,
       candidates,
-      reason: `${product.name} (${product.packSize}) is currently out of stock.`,
+      reason: `${product.name} (${product.packSize}) is currently out of stock. Shopkeeper will arrange from warehouse.`,
     };
   }
 
-  if (stock < qty) {
+  if (stock < normalizedRequestedQty) {
     return {
       rawText,
       requestedQty: qty,
@@ -324,7 +375,7 @@ function flagSingleProduct(
       status: "INSUFFICIENT_STOCK",
       selectedProduct: product,
       candidates,
-      reason: `Only ${stock} available in stock, requested ${qty}.`,
+      reason: `Only ${stock} available in stock, requested ${normalizedRequestedQty}. Shopkeeper will fulfill partial or arrange rest.`,
     };
   }
 

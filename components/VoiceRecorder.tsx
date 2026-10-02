@@ -14,6 +14,7 @@ import {
   Radio,
   ArrowRight,
 } from "lucide-react";
+import { VoiceOrderReport } from "./VoiceOrderReport";
 
 interface VoiceRecorderProps {
   onTranscriptComplete?: (transcript: string) => void;
@@ -24,6 +25,7 @@ interface VoiceRecorderProps {
   deliveryAddress?: string;
   compact?: boolean;
   floating?: boolean;
+  showReport?: boolean;
   className?: string;
 }
 
@@ -68,6 +70,7 @@ export function VoiceRecorder({
   deliveryAddress,
   compact = false,
   floating = false,
+  showReport = true,
   className = "",
 }: VoiceRecorderProps) {
   const [isListening, setIsListening] = useState(false);
@@ -263,7 +266,14 @@ export function VoiceRecorder({
 
   // Submit order via Voice-to-Text LLM API to Shopkeeper
   const handleSubmitVoiceOrder = async () => {
-    const textToSend = transcript.trim();
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      setIsListening(false);
+    }
+
+    const textToSend = (transcript + " " + interimTranscript).trim();
     if (!textToSend) return;
 
     setIsSubmitting(true);
@@ -356,6 +366,7 @@ export function VoiceRecorder({
               isSupported={isSupported}
               isSubmitting={isSubmitting}
               detectedCorrelations={detectedCorrelations}
+              updateCorrelations={updateCorrelations}
               handleClear={handleClear}
               handleUseSample={handleUseSample}
               handleSubmitVoiceOrder={handleSubmitVoiceOrder}
@@ -384,11 +395,13 @@ export function VoiceRecorder({
         isSupported={isSupported}
         isSubmitting={isSubmitting}
         detectedCorrelations={detectedCorrelations}
+        updateCorrelations={updateCorrelations}
         handleClear={handleClear}
         handleUseSample={handleUseSample}
         handleSubmitVoiceOrder={handleSubmitVoiceOrder}
         orderResult={orderResult}
         compact={compact}
+        showReport={showReport}
       />
     </div>
   );
@@ -405,11 +418,13 @@ interface VoiceRecorderContentProps {
   isSupported: boolean;
   isSubmitting: boolean;
   detectedCorrelations: Array<{ spoken: string; english: string }>;
+  updateCorrelations: (text: string) => void;
   handleClear: () => void;
   handleUseSample: (phrase: string) => void;
   handleSubmitVoiceOrder: () => void;
   orderResult: any;
   compact?: boolean;
+  showReport?: boolean;
 }
 
 // Sub-component for recorder UI controls & sound waves
@@ -424,11 +439,13 @@ function VoiceRecorderContent({
   isSupported,
   isSubmitting,
   detectedCorrelations,
+  updateCorrelations,
   handleClear,
   handleUseSample,
   handleSubmitVoiceOrder,
   orderResult,
   compact = false,
+  showReport = true,
 }: VoiceRecorderContentProps) {
   return (
     <div className="space-y-4">
@@ -565,8 +582,8 @@ function VoiceRecorderContent({
       {/* Live Transcript Display Box */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs font-semibold text-zinc-600">
-          <span>Live Speech Transcript:</span>
-          {transcript && (
+          <span>Speech Transcript (Live or Editable):</span>
+          {(transcript || interimTranscript) && (
             <button
               type="button"
               onClick={handleClear}
@@ -578,18 +595,21 @@ function VoiceRecorderContent({
           )}
         </div>
 
-        <div className="relative min-h-[72px] p-3 rounded-xl border border-zinc-200 bg-white/90 font-sans text-xs sm:text-sm text-zinc-800 leading-relaxed shadow-inner">
-          {transcript || interimTranscript ? (
-            <p>
-              <span>{transcript}</span>
-              {interimTranscript && (
-                <span className="text-zinc-400 italic"> {interimTranscript}</span>
-              )}
-            </p>
-          ) : (
-            <p className="text-zinc-400 italic">
-              Your spoken words will appear here in real-time... (jaise: &ldquo;2 kilo atta, adha kilo cheeni aur tel...&rdquo;)
-            </p>
+        <div className="relative">
+          <textarea
+            rows={3}
+            value={transcript}
+            onChange={(e) => {
+              setTranscript(e.target.value);
+              updateCorrelations(e.target.value);
+            }}
+            placeholder="Your spoken words will appear here in real-time... (jaise: 2 kilo atta, adha kilo cheeni aur tel...)"
+            className="w-full p-3.5 rounded-xl border border-zinc-200 bg-white/95 font-sans text-xs sm:text-sm text-zinc-800 leading-relaxed shadow-inner focus:border-orange-500 focus:ring-1 focus:ring-orange-500 resize-none"
+          />
+          {interimTranscript && (
+            <div className="px-3 pb-2 text-[11px] text-orange-600 italic bg-white/95 border-x border-b border-zinc-200 rounded-b-xl -mt-1 font-medium">
+              Live listening: {interimTranscript}
+            </div>
           )}
         </div>
       </div>
@@ -637,43 +657,52 @@ function VoiceRecorderContent({
 
       {/* Real-time Order Receipt Feedback Banner */}
       {orderResult && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 space-y-3 animate-in fade-in duration-300">
-          <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Shopkeeper Counter Received Order!</span>
+        compact || !showReport ? (
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 space-y-3 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Shopkeeper Counter Received Order!</span>
+              </div>
+              {orderResult.shopkeeperReceipt?.token && (
+                <span className="font-mono text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                  {orderResult.shopkeeperReceipt.token}
+                </span>
+              )}
             </div>
-            {orderResult.shopkeeperReceipt?.token && (
-              <span className="font-mono text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
-                {orderResult.shopkeeperReceipt.token}
-              </span>
-            )}
-          </div>
 
-          <div className="space-y-1 text-[11px]">
-            <div className="font-semibold text-emerald-900">
-              Order #{orderResult.orderNumber} • Total: {orderResult.formattedTotal}
+            <div className="space-y-1 text-[11px]">
+              <div className="font-semibold text-emerald-900">
+                Order #{orderResult.orderNumber} • Total: {orderResult.formattedTotal}
+              </div>
+              <div className="text-emerald-800">
+                Items extracted & correlated ({orderResult.items?.length || 0}):
+              </div>
+              <ul className="list-disc pl-4 space-y-0.5 text-emerald-900">
+                {orderResult.items?.map((it: any, i: number) => (
+                  <li key={i}>
+                    <span className="font-bold">
+                      {it.selectedProduct?.name || it.englishCorrelation || it.spokenTerm}
+                    </span>{" "}
+                    — {it.quantity || "1"} {it.unit || ""} ({it.formattedLineTotal})
+                    {it.correlationExplanation && (
+                      <span className="block text-[10px] text-emerald-700 italic">
+                        ↳ {it.correlationExplanation}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="text-emerald-800">
-              Items extracted ({orderResult.items?.length || 0}):
-            </div>
-            <ul className="list-disc pl-4 space-y-0.5 text-emerald-900">
-              {orderResult.items?.map((it: any, i: number) => (
-                <li key={i}>
-                  <span className="font-bold">
-                    {it.selectedProduct?.name || it.englishCorrelation || it.spokenTerm}
-                  </span>{" "}
-                  — {it.quantity || "1"} {it.unit || ""} ({it.formattedLineTotal})
-                  {it.correlationExplanation && (
-                    <span className="block text-[10px] text-emerald-700 italic">
-                      ↳ {it.correlationExplanation}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
           </div>
-        </div>
+        ) : (
+          <div className="pt-2">
+            <VoiceOrderReport
+              orderData={orderResult}
+              onReset={handleClear}
+            />
+          </div>
+        )
       )}
     </div>
   );

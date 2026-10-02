@@ -15,7 +15,9 @@ import {
   FileText,
   Volume2,
   RefreshCw,
+  Receipt,
 } from "lucide-react";
+import { VoiceOrderReport } from "@/components/VoiceOrderReport";
 
 export default function VoiceOrderPage() {
   const [recentCounterOrders, setRecentCounterOrders] = useState<any[]>([]);
@@ -76,6 +78,28 @@ export default function VoiceOrderPage() {
           <div className="absolute right-12 top-4 w-32 h-32 rounded-full bg-amber-400/20 blur-2xl pointer-events-none" />
         </div>
 
+        {/* Active Itemized Order Report Banner */}
+        {activeVoiceOrder && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-zinc-900 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-orange-600" />
+                <span>Generated Voice Order Report & Counter Bill</span>
+              </h2>
+              <button
+                onClick={() => setActiveVoiceOrder(null)}
+                className="text-xs text-zinc-500 hover:text-zinc-800 underline"
+              >
+                Close Report
+              </button>
+            </div>
+            <VoiceOrderReport
+              orderData={activeVoiceOrder}
+              onReset={() => setActiveVoiceOrder(null)}
+            />
+          </div>
+        )}
+
         {/* 2-Column Split: Customer Voice Recorder vs Shopkeeper Live Counter */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Customer Voice Intake Studio */}
@@ -108,6 +132,7 @@ export default function VoiceOrderPage() {
                 customerName="Aman Verma"
                 customerPhone="+91 98765 43210"
                 deliveryAddress="Flat 302, Green Valley Apartments"
+                showReport={false}
                 onOrderParsed={handleOrderParsed}
               />
             </div>

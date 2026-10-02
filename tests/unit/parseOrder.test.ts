@@ -85,4 +85,39 @@ describe("Voice Order Parsing & AI Correlation (No Aliases Needed)", () => {
     expect(matched[0].matchResult.selectedProduct?.name).toBe("Madhur Pure Sugar");
     expect(matched[0].correlationExplanation).toContain("Sugar");
   });
+
+  it("handles '500g toor dal' cleanly without orphan 'g' and calculates loose weight pricing", () => {
+    const transcript = "500g toor dal aur 1kg basmati rice";
+    const parsed = correlateVoiceTranscriptRules(transcript);
+
+    const dal = parsed.items.find((i) => i.spoken_term === "toor dal");
+    expect(dal).toBeDefined();
+    expect(dal?.quantity).toBe(500);
+    expect(dal?.unit).toBe("g");
+    expect(dal?.english_correlation).toBe("Toor Dal");
+
+    const rice = parsed.items.find((i) => i.spoken_term === "basmati rice");
+    expect(rice).toBeDefined();
+    expect(rice?.quantity).toBe(1);
+    expect(rice?.unit).toBe("kg");
+
+    const matched = matchVoiceItemsAgainstCatalog(parsed.items, []);
+    const dalMatch = matched.find((m) => m.item.spoken_term === "toor dal");
+    expect(dalMatch?.matchResult.selectedProduct?.name).toContain("Toor Dal");
+    expect(dalMatch?.matchResult.status).toBe("MATCHED"); // Not INSUFFICIENT_STOCK!
+  });
+
+  it("handles 'Ek darjan kela' and maps to Bananas accurately", () => {
+    const transcript = "Ek darjan kela aur 1kg tamatar";
+    const parsed = correlateVoiceTranscriptRules(transcript);
+
+    const kela = parsed.items.find((i) => i.spoken_term === "kela");
+    expect(kela).toBeDefined();
+    expect(kela?.english_correlation).toBe("Bananas");
+    expect(kela?.quantity).toBe(12);
+
+    const matched = matchVoiceItemsAgainstCatalog(parsed.items, []);
+    const kelaMatch = matched.find((m) => m.item.spoken_term === "kela");
+    expect(kelaMatch?.matchResult.selectedProduct?.name).toContain("Bananas");
+  });
 });

@@ -74,17 +74,26 @@ export async function POST(req: NextRequest) {
       deliveryAddress: body.deliveryAddress || null,
       deliveryTimeText: body.deliveryTimeText || "Immediate / ASAP",
       items: (body.items || []).map((it: any) => ({
-        spokenText: it.raw_text || it.rawText || it.spoken_term,
+        spokenText: it.raw_text || it.rawText || it.spoken_term || it.spokenTerm,
         englishCorrelation: it.english_correlation || it.englishCorrelation,
         productName:
+          it.selectedProduct?.name ||
           it.productName ||
           it.productNameSnapshot ||
+          it.englishCorrelation ||
           it.english_correlation ||
+          it.spokenTerm ||
           it.raw_text ||
+          it.rawText ||
           "Grocery Item",
+        packSize: it.selectedProduct?.packSize || it.packSize || "",
+        unitRateFormatted: it.rateDisplay || it.unitRateFormatted || "",
         quantity: it.quantity ? `${it.quantity} ${it.unit || ""}`.trim() : "1 pc",
         unit: it.unit || null,
-        lineTotalFormatted: it.lineTotalFormatted || "₹" + (it.lineTotalPaise ? (it.lineTotalPaise / 100).toFixed(2) : "0.00"),
+        lineTotalFormatted:
+          it.formattedLineTotal ||
+          it.lineTotalFormatted ||
+          (it.lineTotalPaise ? `₹${(it.lineTotalPaise / 100).toFixed(2)}` : "—"),
       })),
       totalFormatted: body.totalFormatted || (body.totalPaise ? `₹${(body.totalPaise / 100).toFixed(2)}` : "Estimated at counter"),
       status: "RECEIVED_AT_COUNTER",

@@ -131,6 +131,14 @@ export const HINDI_ENGLISH_CORRELATIONS: Record<string, { english: string; categ
   anda: { english: "Eggs", category: "Eggs & Poultry" },
   ande: { english: "Eggs", category: "Eggs & Poultry" },
 
+  // Fresh Fruits & Produce
+  kela: { english: "Bananas", category: "Fresh Produce" },
+  kele: { english: "Bananas", category: "Fresh Produce" },
+  banana: { english: "Bananas", category: "Fresh Produce" },
+  bananas: { english: "Bananas", category: "Fresh Produce" },
+  seb: { english: "Apples", category: "Fresh Produce" },
+  anar: { english: "Pomegranate", category: "Fresh Produce" },
+
   // Vegetables & Daily Essentials
   pyaaz: { english: "Onion", category: "Vegetables" },
   pyaz: { english: "Onion", category: "Vegetables" },
@@ -139,15 +147,21 @@ export const HINDI_ENGLISH_CORRELATIONS: Record<string, { english: string; categ
   aloo: { english: "Potato", category: "Vegetables" },
   alu: { english: "Potato", category: "Vegetables" },
   tamatar: { english: "Tomato", category: "Vegetables" },
+  tomato: { english: "Tomato", category: "Vegetables" },
   adrak: { english: "Ginger", category: "Vegetables" },
   adrakh: { english: "Ginger", category: "Vegetables" },
   lahsun: { english: "Garlic", category: "Vegetables" },
   lasun: { english: "Garlic", category: "Vegetables" },
   nimbu: { english: "Lemon", category: "Vegetables" },
+  lemon: { english: "Lemon", category: "Vegetables" },
 
-  // Household & Personal
-  sabun: { english: "Soap", category: "Household & Personal Care" },
+  // Snacks, Bakery & Household
+  bhujia: { english: "Bhujia Sev", category: "Bakery & Snacks" },
+  sev: { english: "Bhujia Sev", category: "Bakery & Snacks" },
+  namkeen: { english: "Namkeen", category: "Bakery & Snacks" },
+  sabun: { english: "Bathing Soap", category: "Household & Personal Care" },
   surf: { english: "Detergent Powder", category: "Household & Cleaning" },
+  vim: { english: "Dishwash Bar", category: "Household & Cleaning" },
   colgate: { english: "Toothpaste", category: "Personal Care" },
   paste: { english: "Toothpaste", category: "Personal Care" },
 };
@@ -208,6 +222,8 @@ export function correlateVoiceTranscriptRules(transcript: string): ParsedVoiceOr
     "surf excel",
     "rin",
     "vim",
+    "haldiram",
+    "haldirams",
   ];
 
   for (const seg of rawSegments) {
@@ -232,19 +248,20 @@ export function correlateVoiceTranscriptRules(transcript: string): ParsedVoiceOr
       }
     }
 
-    // Clean spoken item name
+    // Clean spoken item name thoroughly without leaving orphan unit letters like "g" or "kg" or prepositions
     let spokenTerm = seg
-      .replace(new RegExp(`\\b(${knownBrands.join("|")})\\b`, "gi"), "")
-      .replace(
-        /\b(kilo|kg|kilogram|gram|gm|litre|ltr|l|packet|pkt|darjan|dozen|pcs|nag|aadha|adha|half|dedh|dhai|sava|paune|ek|do|teen|char|paanch|chhe|saat|aath|nau|das)\b/gi,
-        ""
-      )
-      .replace(
-        /\b(thoda zyada|thoda sa|thoda|kuch|bhi chahiye|chahiye|bhej dena|bhejna|bhej do|bhaiya|ji|dena|de do|jaldi|kardo)\b/gi,
-        ""
-      )
-      .replace(/[0-9.]+/g, "")
-      .replace(/[^\w\s\u0900-\u097F]/g, "")
+      .replace(new RegExp(`\\b(${knownBrands.join("|")})\\b`, "gi"), " ")
+      .replace(/\b(loaf of|loaves of|packets? of|pkts? of|bottles? of|cans? of|tins? of|bags? of)\b/gi, " ")
+      .replace(/\b(sava teen|paune teen|sava do|paune do|paune ek|sava ek|dedh kilo|dhai kilo|ek darjan|do darjan)\b/gi, " ")
+      .replace(/\b(aadha|adha|half|dedh|deydh|dhai|dhaai|sava|savaa|paune|pauna)\s*(kilo|kg|l|litre|liter|packet|pkt)?\b/gi, " ")
+      .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/gi, " ")
+      .replace(/\b(ek|do|teen|char|chaar|paanch|panch|chhe|chhah|saat|aath|nau|das|gyarah|barah|darjan|dozen)\b/gi, " ")
+      .replace(/\b\d+(\.\d+)?\s*(kilo|kg|kilograms?|grams?|gm?|g|litres?|liters?|ltr|lt|l|packets?|pkts?|pack|darjan|dozens?|pcs|nag|piece|pieces|loaf|loaves)?\b/gi, " ")
+      .replace(/\b(kilo|kg|kilograms?|grams?|gm|g|litres?|liters?|ltr|lt|l|packets?|pkts?|pack|darjan|dozens?|pcs|nag|piece|pieces|loaf|loaves)\b/gi, " ")
+      .replace(/\b(thoda zyada|thoda sa|thoda|kuch|bhi chahiye|chahiye|bhej dena|bhejna|bhej do|bhaiya|ji|dena|de do|jaldi|kardo|krdo|rakhna|bhi|aur|and|le aana|bhej|of)\b/gi, " ")
+      .replace(/[0-9.]+/g, " ")
+      .replace(/[^\w\s\u0900-\u097F]/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
 
     if (!spokenTerm || /^(bhaiya|bhai|ji|chahiye|bhej dena|bhejna|bhej do|dena|de do|jaldi|kripya|bhi)$/i.test(spokenTerm)) {
@@ -256,8 +273,11 @@ export function correlateVoiceTranscriptRules(transcript: string): ParsedVoiceOr
     let correlatedEnglish = spokenTerm;
     let detectedCategory = "General Grocery";
 
-    // Direct lookup in our semantic knowledge base
-    for (const [hindiTerm, info] of Object.entries(HINDI_ENGLISH_CORRELATIONS)) {
+    // Direct lookup in our semantic knowledge base (prioritizing longer specific terms first)
+    const sortedEntries = Object.entries(HINDI_ENGLISH_CORRELATIONS).sort(
+      (a, b) => b[0].length - a[0].length
+    );
+    for (const [hindiTerm, info] of sortedEntries) {
       if (
         lowerSpoken === hindiTerm ||
         new RegExp(`\\b${hindiTerm}\\b`, "i").test(lowerSpoken)
@@ -489,6 +509,443 @@ Respond ONLY with valid JSON conforming to this schema:
 }
 
 /**
+ * Realistic default grocery catalog matching Prasad Kirana's inventory.
+ * Used for zero-latency offline demo, fallback when DB is disconnected, and instant testing.
+ */
+export const DEFAULT_GROCERY_CATALOG: CatalogProductWithAliases[] = [
+  {
+    id: "prod-atta-5kg",
+    shopId: "shop-prasad",
+    name: "Aashirvaad Shudh Chakki Atta",
+    brand: "Aashirvaad",
+    category: "Flours & Grains",
+    packSize: "5 kg",
+    unit: "kg",
+    pricePaise: 23000,
+    stockQty: "25.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["aashirvaad aata", "chakki atta", "wheat flour", "aata", "atta", "gehun ka atta"],
+  },
+  {
+    id: "prod-oil-sunflower-1l",
+    shopId: "shop-prasad",
+    name: "Fortune Sunlite Refined Sunflower Oil",
+    brand: "Fortune",
+    category: "Edible Oils",
+    packSize: "1 L",
+    unit: "l",
+    pricePaise: 14500,
+    stockQty: "30.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["fortune sunflower oil", "sunflower oil", "sunflower tel", "refined tel", "sunflower 1L", "tel"],
+  },
+  {
+    id: "prod-oil-mustard-1l",
+    shopId: "shop-prasad",
+    name: "Fortune Kachi Ghani Pure Mustard Oil",
+    brand: "Fortune",
+    category: "Edible Oils",
+    packSize: "1 L",
+    unit: "l",
+    pricePaise: 16500,
+    stockQty: "25.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["mustard oil", "sarson tel", "sarso tel", "mustrad tel", "tel"],
+  },
+  {
+    id: "prod-sugar-1kg",
+    shopId: "shop-prasad",
+    name: "Madhur Pure & Hygienic Sugar",
+    brand: "Madhur",
+    category: "Sugar & Sweeteners",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 4800,
+    stockQty: "40.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["madhur sugar", "sugar", "cheeni", "shakkar", "sugar 1kg"],
+  },
+  {
+    id: "prod-butter-100g",
+    shopId: "shop-prasad",
+    name: "Amul Butter Pasteurised",
+    brand: "Amul",
+    category: "Dairy",
+    packSize: "100 g",
+    unit: "g",
+    pricePaise: 5800,
+    stockQty: "20.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["amul butter", "butter", "amul makhan", "butter 100g", "makhan"],
+  },
+  {
+    id: "prod-milk-1l",
+    shopId: "shop-prasad",
+    name: "Amul Taaza Fresh Toned Milk",
+    brand: "Amul",
+    category: "Dairy",
+    packSize: "1 L",
+    unit: "l",
+    pricePaise: 6800,
+    stockQty: "30.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["amul taaza", "amul milk", "toned milk", "doodh", "dudh", "milk"],
+  },
+  {
+    id: "prod-rice-5kg",
+    shopId: "shop-prasad",
+    name: "India Gate Basmati Rice",
+    brand: "India Gate",
+    category: "Rice & Grains",
+    packSize: "5 kg",
+    unit: "kg",
+    pricePaise: 56000,
+    stockQty: "15.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["india gate basmati", "basmati rice", "chawal", "rice"],
+  },
+  {
+    id: "prod-toor-1kg",
+    shopId: "shop-prasad",
+    name: "Tata Sampann Unpolished Toor Dal",
+    brand: "Tata Sampann",
+    category: "Dals & Pulses",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 17500,
+    stockQty: "20.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["tata toor dal", "toor dal", "arhar dal", "tuvar dal", "dal"],
+  },
+  {
+    id: "prod-salt-1kg",
+    shopId: "shop-prasad",
+    name: "Tata Salt Vacuum Evaporated Iodized",
+    brand: "Tata",
+    category: "Salt & Spices",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 2800,
+    stockQty: "50.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["tata salt", "tata namak", "iodized salt", "namak", "salt"],
+  },
+  {
+    id: "prod-tea-250g",
+    shopId: "shop-prasad",
+    name: "Tata Tea Gold",
+    brand: "Tata",
+    category: "Beverages",
+    packSize: "250 g",
+    unit: "g",
+    pricePaise: 14000,
+    stockQty: "25.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["tata tea", "tata tea gold", "tea gold", "chai patti", "chai"],
+  },
+  {
+    id: "prod-maggi-4pack",
+    shopId: "shop-prasad",
+    name: "Maggi 2-Minute Masala Instant Noodles",
+    brand: "Maggi",
+    category: "Instant Food",
+    packSize: "280 g (4 pack)",
+    unit: "pack",
+    pricePaise: 5600,
+    stockQty: "30.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["maggi", "maggi noodles", "maggie", "instant noodles"],
+  },
+  {
+    id: "prod-bread-400g",
+    shopId: "shop-prasad",
+    name: "Britannia 100% Whole Wheat Bread",
+    brand: "Britannia",
+    category: "Bakery",
+    packSize: "400 g",
+    unit: "pack",
+    pricePaise: 4500,
+    stockQty: "15.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["britannia bread", "wheat bread", "bread", "double roti"],
+  },
+  {
+    id: "prod-eggs-12",
+    shopId: "shop-prasad",
+    name: "Farm Fresh Table Eggs",
+    brand: "Farm Fresh",
+    category: "Eggs",
+    packSize: "12 pcs (1 Dozen)",
+    unit: "dozen",
+    pricePaise: 9600,
+    stockQty: "25.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["eggs", "ande", "anda", "farm eggs", "dozen eggs"],
+  },
+  {
+    id: "prod-potatoes-1kg",
+    shopId: "shop-prasad",
+    name: "Fresh Potatoes (Aalu)",
+    brand: "Fresh Produce",
+    category: "Vegetables",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 3000,
+    stockQty: "50.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["potatoes", "aalu", "aloo", "fresh potatoes"],
+  },
+  {
+    id: "prod-onions-1kg",
+    shopId: "shop-prasad",
+    name: "Fresh Red Onions (Pyaaz)",
+    brand: "Fresh Produce",
+    category: "Vegetables",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 3500,
+    stockQty: "40.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["onions", "pyaaz", "pyaz", "kanda", "red onions"],
+  },
+  {
+    id: "prod-bananas-12",
+    shopId: "shop-prasad",
+    name: "Fresh Bananas (Kela)",
+    brand: "Fresh Produce",
+    category: "Fresh Produce",
+    packSize: "12 pcs (1 Dozen)",
+    unit: "dozen",
+    pricePaise: 6000,
+    stockQty: "30.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["bananas", "kela", "kele", "banana", "fresh bananas", "dozen kela"],
+  },
+  {
+    id: "prod-tomatoes-1kg",
+    shopId: "shop-prasad",
+    name: "Fresh Red Tomatoes (Tamatar)",
+    brand: "Fresh Produce",
+    category: "Vegetables",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 4000,
+    stockQty: "35.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["tomatoes", "tamatar", "tomato", "fresh tomatoes"],
+  },
+  {
+    id: "prod-sev-200g",
+    shopId: "shop-prasad",
+    name: "Haldiram's Bhujia Sev",
+    brand: "Haldiram's",
+    category: "Bakery & Snacks",
+    packSize: "200 g",
+    unit: "pack",
+    pricePaise: 5500,
+    stockQty: "25.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["bhujia sev", "bhujia", "sev", "haldiram sev", "namkeen"],
+  },
+  {
+    id: "prod-parleg-250g",
+    shopId: "shop-prasad",
+    name: "Parle-G Gold Glucose Biscuits",
+    brand: "Parle",
+    category: "Bakery & Snacks",
+    packSize: "250 g",
+    unit: "pack",
+    pricePaise: 3000,
+    stockQty: "40.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["parle g", "parle-g", "biscuits", "biscuit", "glucose biscuit"],
+  },
+  {
+    id: "prod-surf-1kg",
+    shopId: "shop-prasad",
+    name: "Surf Excel Easy Wash Detergent Powder",
+    brand: "Surf Excel",
+    category: "Household & Cleaning",
+    packSize: "1 kg",
+    unit: "kg",
+    pricePaise: 14000,
+    stockQty: "20.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["surf excel", "surf", "detergent", "washing powder"],
+  },
+  {
+    id: "prod-vim-bar",
+    shopId: "shop-prasad",
+    name: "Vim Lemon Dishwash Bar",
+    brand: "Vim",
+    category: "Household & Cleaning",
+    packSize: "200 g",
+    unit: "pack",
+    pricePaise: 2000,
+    stockQty: "30.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["vim bar", "vim", "dishwash bar", "bartan sabun"],
+  },
+  {
+    id: "prod-dettol-soap",
+    shopId: "shop-prasad",
+    name: "Dettol Original Bathing Soap",
+    brand: "Dettol",
+    category: "Household & Personal Care",
+    packSize: "125 g",
+    unit: "pack",
+    pricePaise: 4200,
+    stockQty: "30.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["dettol", "dettol soap", "sabun", "bathing soap", "soap"],
+  },
+  {
+    id: "prod-chillies-100g",
+    shopId: "shop-prasad",
+    name: "Fresh Green Chillies (Hari Mirch)",
+    brand: "Fresh Produce",
+    category: "Vegetables",
+    packSize: "100 g",
+    unit: "g",
+    pricePaise: 1500,
+    stockQty: "40.00",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    aliases: ["hari mirch", "mirch", "mirchi", "green chillies"],
+  },
+];
+
+/**
+ * Accurately compute unit rate and line total for loose and packaged products.
+ */
+export function computeItemLineTotal(
+  item: CorrelatedItem,
+  selectedProduct: CatalogProductWithAliases
+): {
+  unitRatePaise: number;
+  lineTotalPaise: number;
+  rateDisplay: string;
+} {
+  const pricePaise = selectedProduct.pricePaise;
+  const packSize = (selectedProduct.packSize || "").toLowerCase();
+  const numMatch = packSize.match(/([0-9]+(?:\.[0-9]+)?)/);
+  const packVal = numMatch ? parseFloat(numMatch[1]) : 1;
+  const reqQty = item.quantity && item.quantity > 0 ? item.quantity : 1;
+
+  // Weight / Volume scaling (e.g. 2 kg of a 5 kg pack, or 0.5 kg of 1 kg pack)
+  if (
+    (item.unit === "kg" || item.unit === "l") &&
+    (packSize.includes("kg") || packSize.includes("l"))
+  ) {
+    const ratePerUnit = Math.round(pricePaise / packVal);
+    const lineTotal = Math.round(reqQty * ratePerUnit);
+    return {
+      unitRatePaise: ratePerUnit,
+      lineTotalPaise: lineTotal,
+      rateDisplay: `₹${(ratePerUnit / 100).toFixed(0)} / ${item.unit}`,
+    };
+  }
+
+  // Grams conversion (e.g. 500g of a 1kg product)
+  if (item.unit === "g" && (packSize.includes("kg") || packSize.includes("g") || packVal >= 1)) {
+    const ratePerKg = packSize.includes("kg")
+      ? Math.round(pricePaise / packVal)
+      : Math.round((pricePaise / packVal) * 1000);
+    const lineTotal = Math.round((reqQty / 1000) * ratePerKg);
+    return {
+      unitRatePaise: ratePerKg,
+      lineTotalPaise: lineTotal,
+      rateDisplay: `₹${(ratePerKg / 100).toFixed(0)} / kg`,
+    };
+  }
+
+  // Millilitres conversion (e.g. 500ml of a 1L product)
+  if (item.unit === "ml" && (packSize.includes("l") || packVal >= 1)) {
+    const ratePerLtr = Math.round(pricePaise / packVal);
+    const lineTotal = Math.round((reqQty / 1000) * ratePerLtr);
+    return {
+      unitRatePaise: ratePerLtr,
+      lineTotalPaise: lineTotal,
+      rateDisplay: `₹${(ratePerLtr / 100).toFixed(0)} / L`,
+    };
+  }
+
+  // Dozen conversion
+  if (packSize.includes("dozen") || item.unit === "dozen") {
+    if (item.unit === "pcs" || item.unit === "pc") {
+      const ratePerPiece = Math.round(pricePaise / 12);
+      const lineTotal = Math.round(reqQty * ratePerPiece);
+      return {
+        unitRatePaise: pricePaise,
+        lineTotalPaise: lineTotal,
+        rateDisplay: `₹${(pricePaise / 100).toFixed(0)} / dozen`,
+      };
+    }
+
+    const ratePerDozen = pricePaise;
+    const lineTotal = Math.round(reqQty * ratePerDozen);
+    return {
+      unitRatePaise: ratePerDozen,
+      lineTotalPaise: lineTotal,
+      rateDisplay: `₹${(ratePerDozen / 100).toFixed(0)} / dozen`,
+    };
+  }
+
+  // Pack / Pcs / General
+  const lineTotal = Math.round(reqQty * pricePaise);
+  return {
+    unitRatePaise: pricePaise,
+    lineTotalPaise: lineTotal,
+    rateDisplay: `₹${(pricePaise / 100).toFixed(0)} / pack`,
+  };
+}
+
+/**
  * Enhanced Catalog Matcher:
  * Uses both the spoken term AND the AI's English correlation to match items in the shopkeeper's catalog.
  * Result: Even if the shopkeeper has ZERO aliases, "cheeni" matches "Madhur Sugar" automatically!
@@ -501,9 +958,11 @@ export function matchVoiceItemsAgainstCatalog(
   matchResult: MatchResult;
   correlationExplanation: string;
 }> {
+  const activeCatalog = catalog && catalog.length > 0 ? catalog : DEFAULT_GROCERY_CATALOG;
+
   return items.map((item) => {
     // 1. Try matching with the English correlation first (e.g. "Sugar" for "cheeni")
-    let matchResult = matchItemAgainstCatalog(item.english_correlation, catalog, {
+    let matchResult = matchItemAgainstCatalog(item.english_correlation, activeCatalog, {
       requestedQty: item.quantity,
       requestedUnit: item.unit,
       brandHint: item.brand_hint,
@@ -515,7 +974,7 @@ export function matchVoiceItemsAgainstCatalog(
 
     // 2. If not matched, try matching with the original raw text
     if (matchResult.status === "NOT_FOUND") {
-      const rawMatch = matchItemAgainstCatalog(item.raw_text, catalog, {
+      const rawMatch = matchItemAgainstCatalog(item.raw_text, activeCatalog, {
         requestedQty: item.quantity,
         requestedUnit: item.unit,
         brandHint: item.brand_hint,
@@ -529,8 +988,17 @@ export function matchVoiceItemsAgainstCatalog(
       }
     }
 
+    // Guarantee selectedProduct is assigned if candidates exist
+    if (!matchResult.selectedProduct && matchResult.candidates && matchResult.candidates.length > 0) {
+      matchResult.selectedProduct = matchResult.candidates[0].product;
+    }
+
     if (matchResult.status === "MATCHED" && matchResult.selectedProduct) {
       explanation += ` ➔ Matched "${matchResult.selectedProduct.name}" (without requiring shopkeeper aliases!)`;
+    } else if (matchResult.status === "AMBIGUOUS" && matchResult.selectedProduct) {
+      explanation += ` ➔ Selected "${matchResult.selectedProduct.name}" (default option; other varieties in stock)`;
+    } else if (matchResult.status === "INSUFFICIENT_STOCK" && matchResult.selectedProduct) {
+      explanation += ` ➔ Matched "${matchResult.selectedProduct.name}" (limited stock alert)`;
     }
 
     return {
