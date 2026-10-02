@@ -15,7 +15,10 @@ import {
   RotateCcw,
   AlertCircle,
   HelpCircle,
+  Mic,
+  Sparkles,
 } from "lucide-react";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 
 interface OrderDeskClientProps {
   shop: {
@@ -79,6 +82,7 @@ export function OrderDeskClient({ shop, user }: OrderDeskClientProps) {
   const [deliveryAddress, setDeliveryAddress] = useState(user?.address || "");
   const [deliveryTime, setDeliveryTime] = useState("");
   const [specialNotes, setSpecialNotes] = useState("");
+  const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
 
   const sampleMessages = [
     "bhaiya 2 kilo atta, ek Amul butter aur sugar half kilo, tel bhi chahiye, kal subah tak bhej dena",
@@ -331,65 +335,130 @@ export function OrderDeskClient({ shop, user }: OrderDeskClientProps) {
       {!activeOrder ? (
         /* Order Input Screen */
         <div className="border border-[#e7e0d6] bg-white rounded-lg p-6 shadow-sm space-y-6">
-          <div>
-            <h2 className="text-base font-bold text-[#18181b]">
-              Send your grocery list in casual Hinglish
-            </h2>
-            <p className="text-xs text-[#71717a] mt-1">
-              Type or paste items in Hindi or English (e.g. &ldquo;2 kilo atta, adha kilo cheeni aur tel, kal subah bhej dena&rdquo;).
-            </p>
-          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#f4f0eb] pb-4">
+            <div>
+              <h2 className="text-base font-bold text-[#18181b]">
+                Order in casual Hinglish, Hindi, or English
+              </h2>
+              <p className="text-xs text-[#71717a] mt-0.5">
+                Speak directly via microphone or type your grocery list. No item aliases needed!
+              </p>
+            </div>
 
-          {/* Quick Examples */}
-          <div>
-            <label className="text-xs font-semibold text-[#71717a] uppercase tracking-wider block mb-2">
-              Try an example:
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {sampleMessages.map((sample, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setMessage(sample)}
-                  className="text-left text-xs p-2 rounded-md bg-[#faf8f5] hover:bg-[#f4f0eb] border border-[#e7e0d6] text-[#3f3f46] transition"
-                >
-                  &ldquo;{sample}&rdquo;
-                </button>
-              ))}
+            <div className="flex items-center gap-1 bg-[#faf8f5] p-1 rounded-lg border border-[#e7e0d6] self-start sm:self-auto text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setInputMode("voice")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition ${
+                  inputMode === "voice"
+                    ? "bg-[#c2410c] text-white shadow-xs"
+                    : "text-[#52525b] hover:text-[#18181b]"
+                }`}
+              >
+                <Mic className="w-3.5 h-3.5" />
+                <span>Voice Order</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode("text")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition ${
+                  inputMode === "text"
+                    ? "bg-[#c2410c] text-white shadow-xs"
+                    : "text-[#52525b] hover:text-[#18181b]"
+                }`}
+              >
+                <span>Type Text</span>
+              </button>
             </div>
           </div>
 
-          {/* Message Textarea */}
-          <div className="space-y-2">
-            <div className="relative">
-              <textarea
-                rows={4}
-                maxLength={1000}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Yahan apna order likhein... (jaise: 2 kilo atta, 1 Amul butter, sugar half kilo...)"
-                className="w-full p-3.5 text-sm border border-[#e7e0d6] rounded-md focus:border-[#c2410c] focus:ring-0 bg-[#faf8f5] font-sans"
+          {inputMode === "voice" ? (
+            <div className="space-y-4">
+              <VoiceRecorder
+                shopSlug={shop.slug}
+                customerName={user?.name || "Customer"}
+                customerPhone={user?.phone || undefined}
+                deliveryAddress={deliveryAddress || user?.address || undefined}
+                onTranscriptComplete={(transcriptText) => {
+                  setMessage(transcriptText);
+                }}
+                onOrderParsed={(data) => {
+                  if (data.transcript) {
+                    handleSendOrder(data.transcript);
+                  }
+                }}
               />
-              <span className="absolute bottom-2.5 right-3 text-[11px] text-[#a1a1aa] font-mono">
-                {message.length}/1000
-              </span>
-            </div>
 
-            <button
-              onClick={() => handleSendOrder(message)}
-              disabled={loading || !message.trim()}
-              className="w-full py-3 px-4 rounded-md bg-[#c2410c] hover:bg-[#9a3412] text-white text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-50 shadow-sm"
-            >
-              {loading ? (
-                <span>Parsing order & matching items...</span>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Send Order to Counter</span>
-                </>
+              {message && (
+                <div className="p-3 bg-[#faf8f5] border border-[#e7e0d6] rounded-md flex items-center justify-between gap-3 text-xs">
+                  <span className="text-[#52525b] truncate">
+                    Ready to submit to counter: <strong className="text-[#18181b]">{message}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSendOrder(message)}
+                    disabled={loading}
+                    className="shrink-0 px-3 py-1.5 bg-[#c2410c] hover:bg-[#9a3412] text-white rounded font-semibold text-xs transition"
+                  >
+                    Send to Counter
+                  </button>
+                </div>
               )}
-            </button>
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Quick Examples */}
+              <div>
+                <label className="text-xs font-semibold text-[#71717a] uppercase tracking-wider block mb-2">
+                  Try an example:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {sampleMessages.map((sample, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setMessage(sample)}
+                      className="text-left text-xs p-2 rounded-md bg-[#faf8f5] hover:bg-[#f4f0eb] border border-[#e7e0d6] text-[#3f3f46] transition"
+                    >
+                      &ldquo;{sample}&rdquo;
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Message Textarea */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <textarea
+                    rows={4}
+                    maxLength={1000}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Yahan apna order likhein... (jaise: 2 kilo atta, 1 Amul butter, sugar half kilo...)"
+                    className="w-full p-3.5 text-sm border border-[#e7e0d6] rounded-md focus:border-[#c2410c] focus:ring-0 bg-[#faf8f5] font-sans"
+                  />
+                  <span className="absolute bottom-2.5 right-3 text-[11px] text-[#a1a1aa] font-mono">
+                    {message.length}/1000
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => handleSendOrder(message)}
+                  disabled={loading || !message.trim()}
+                  className="w-full py-3 px-4 rounded-md bg-[#c2410c] hover:bg-[#9a3412] text-white text-sm font-semibold flex items-center justify-center gap-2 transition disabled:opacity-50 shadow-sm"
+                >
+                  {loading ? (
+                    <span>Parsing order & matching items...</span>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Send Order to Counter</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Active Order Thread & Resolution Desk */
@@ -704,6 +773,23 @@ export function OrderDeskClient({ shop, user }: OrderDeskClientProps) {
           )}
         </div>
       )}
+
+      {/* Floating Voice Assistant pill */}
+      <VoiceRecorder
+        floating={true}
+        shopSlug={shop.slug}
+        customerName={user?.name || "Customer"}
+        customerPhone={user?.phone || undefined}
+        deliveryAddress={deliveryAddress || user?.address || undefined}
+        onTranscriptComplete={(transcriptText) => {
+          setMessage(transcriptText);
+        }}
+        onOrderParsed={(data) => {
+          if (data.transcript) {
+            handleSendOrder(data.transcript);
+          }
+        }}
+      />
     </div>
   );
 }

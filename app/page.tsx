@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { ArrowRight, CheckCircle2, HelpCircle, FileText, ShoppingCart, MessageSquare } from "lucide-react";
+import { ArrowRight, CheckCircle2, HelpCircle, FileText, ShoppingCart, MessageSquare, Mic, Sparkles } from "lucide-react";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
@@ -27,6 +27,14 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
+            <Link
+              href="/voice-order"
+              className="px-6 py-3 rounded-md bg-gradient-to-r from-orange-600 via-amber-600 to-rose-600 text-white font-semibold hover:from-orange-700 hover:to-rose-700 transition flex items-center gap-2 shadow-sm"
+            >
+              <Mic className="w-4 h-4 animate-pulse" />
+              <span>Voice Order (आवाज़ से ऑर्डर)</span>
+            </Link>
+
             <Link
               href={user ? (user.role === "shopkeeper" ? "/dashboard" : "/shops") : "/signup"}
               className="px-6 py-3 rounded-md bg-[#c2410c] text-white font-semibold hover:bg-[#9a3412] transition flex items-center gap-2 shadow-sm"

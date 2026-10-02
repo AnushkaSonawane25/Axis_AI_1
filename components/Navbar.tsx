@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Store, ShoppingBag, LogOut, Settings, Package, User as UserIcon, Menu, X } from "lucide-react";
+import { Store, ShoppingBag, LogOut, Settings, Package, User as UserIcon, Menu, X, Mic } from "lucide-react";
 import { useState } from "react";
 
 interface NavbarProps {
@@ -51,6 +51,18 @@ export function Navbar({ user }: NavbarProps) {
             }`}
           >
             Find Shops
+          </Link>
+
+          <Link
+            href="/voice-order"
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition shadow-xs ${
+              pathname === "/voice-order"
+                ? "bg-[#c2410c] text-white"
+                : "bg-orange-50 text-[#c2410c] hover:bg-orange-100 border border-orange-200"
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5 animate-pulse" />
+            <span>Voice Order (बोल कर ऑर्डर)</span>
           </Link>
 
           {user?.role === "customer" && (
@@ -170,6 +182,14 @@ export function Navbar({ user }: NavbarProps) {
             className="block text-sm font-medium text-[#18181b] py-1"
           >
             Find Shops
+          </Link>
+          <Link
+            href="/voice-order"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-2 text-sm font-bold text-[#c2410c] py-1"
+          >
+            <Mic className="w-4 h-4 animate-pulse" />
+            <span>Voice Order (बोल कर ऑर्डर)</span>
           </Link>
           {user?.role === "customer" && (
             <>
